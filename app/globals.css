@@ -1,0 +1,104 @@
+/* app/globals.css - No changes needed for this specific request */
+/* */
+@font-face {
+  font-family: 'General Sans';
+  src: url('/fonts/GeneralSans/GeneralSans-Regular.woff2') format('woff2'),
+    url('/fonts/GeneralSans/GeneralSans-Regular.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+}
+/* */
+@font-face {
+  font-family: 'General Sans';
+  src: url('/fonts/GeneralSans/GeneralSans-Bold.woff2') format('woff2'),
+    url('/fonts/GeneralSans/GeneralSans-Bold.woff') format('woff');
+  font-weight: bold;
+  font-style: normal;
+}
+/* */
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-Regular.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+}
+/* */
+* {
+  text-wrap: balance;
+  box-sizing: border-box; /* Add box-sizing */
+}
+/* */
+html, body {
+  height: 100%; /* Ensure html and body take full height */
+}
+/* */
+body {
+  background-color: white;
+  margin: 0;
+  padding: 0;
+  font-family: 'General Sans', sans-serif; /* Apply General Sans globally */
+  padding-top: 60px; /* Add padding to offset fixed header */
+}
+/* */
+/* Header Styling */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: left;
+  padding: 10px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background-color: white;
+  z-index: 1000;
+  box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+  height: 60px; /* Fixed header height */
+}
+/* */
+.favicon-button {
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+/* */
+.favicon {
+  width: 40px;
+  height: 40px;
+  margin-right: 10px;
+  display: block;
+}
+/* */
+.title-container {
+  flex-grow: 1;
+  max-width: 80%;
+}
+/* */
+h1,
+.title {
+  font-size: clamp(1.2rem, 3vw, 1.8rem);
+}
+
+/* */
+h2 {
+  font-size: 1.2rem;
+  font-weight: bold;
+  text-align: center;
+  padding: 0 10%;
+}
+/* */
+/* --- Button styles --- */
+
+.button {
+    background-color: #020202; /* Initial color */
+    color: white; /* Text color */
+}
+/* */
+.button:hover {
+    background-color: #6F00FF; /* Hover color */
+}

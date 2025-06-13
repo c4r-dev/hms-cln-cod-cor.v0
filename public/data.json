@@ -1,0 +1,68 @@
+[
+  {
+    "Question": "1",
+    "Name": "Absolute Difference",
+    "Beginner": "X",
+    "Intermediate": "X",
+    "Advanced": "X",
+    "What does this do?": "Computes the absolute difference between two numbers.",
+    "Clean Version": "a = 935\nb = 10.3\n\nif a >= b:\n  absolute_difference = a - b\nelif a < b:\n  absolute_difference = b - a",
+    "Messy Version": "Ad = 935-10.3 if 935>10.3 else 10.3-935 if 10.3<935 else 0",
+    "Status": "Rough Draft"
+  },
+  {
+    "Question": "2",
+    "Name": "Credit Card",
+    "Beginner": "X",
+    "Intermediate": "X",
+    "Advanced": "X",
+    "What does this do?": "Determines the credit card eligibility of a customer at a bank.",
+    "Clean Version": "is_member_of_bank = True    \nincome = 40000    \ncredit_score = 400    \nage = 23    \n\n\nif age < 18:\n    print(\"Ineligible: not old enough\")\nelif income < 25_000:\n    print(\"Ineligible: low income level\")\nelif credit_score < 600:\n    print(\"Ineligible: low credit score\")\nelif not bank_member:\n    print(\"Ineligible: not a bank member\")\nelse:\n    print(\"Eligible for credit card\")",
+    "Messy Version": "is_member_of_bank = True    \nincome = 40000    \ncredit_score = 400    \nage = 23    \nif age >= 18:    \n    if income >= 25000:    \n        if credit_score >= 600:    \n            if is_member_of_bank:    \n                print('Eligible for credit card')    \n            else:    \n                print('Ineligible: not a bank member')    \n        else:    \n                print('Ineligible: low credit score')    \n    else:    \n        print('Ineligible: low income level')    \nelse:    \n    print('Ineligible: not old enough')",
+    "Status": "Rough Draft"
+  },
+  {
+    "Question": "3",
+    "Name": "Rollercoaster",
+    "Beginner": "X",
+    "Intermediate": "X",
+    "Advanced": "X",
+    "What does this do?": "Check a person's height and age to determine whether they're allowed to ride a rollercoaster.",
+    "Clean Version": "rider_height = 5.2\nrider_age = 12\n\nMINIMUM_RIDER_HEIGHT = 5\nMINIMUM_RIDER_AGE = 11\n\nif (rider_height > MINIMUM_RIDER_HEIGHT) and (rider_age > MINIMUM_RIDER_AGE):\n    print('Can ride a rollercoaster')",
+    "Messy Version": "rdrhgt = 5.2 \na = 5 \n \nif (rdrhgt > 5) and (a > 11):\n   print('Can ride a rollercoaster')",
+    "Status": "Rough Draft"
+  },
+  {
+    "Question": "4",
+    "Name": "Fizz buzz",
+    "Beginner": "X",
+    "Intermediate": "X",
+    "Advanced": "X",
+    "What does this do?": "Prints numbers from 1 to 100, except print \"Hum\" for numbers divisible by 3, \"Bug\" for numbers divisible by 5, and \"HumBug\" for numbers divisible by both 3 and 5.\n\nSee Fizz buzz - Wikipedia.",
+    "Clean Version": "for num in range(1, 101):\n    if (num % 5 == 0) and (num % 3 == 0):\n        print('Fizzbuzz')\n    elif num % 3 == 0:\n        print(''Fizz')\n    elif num % 5 == 0:\n        print('Buzz')\n    else:\n        print(num)",
+    "Messy Version": "print(*['Fizzbuzz' if ((num % 5 == 0) and (num % 3 == 0) else 'Fizz' if num % 3 == 0 else 'Buzz' if num % 5 == 0 else 'Fizz' if num % 3 == 0 else num for num in range(1, 101)], sep='\n')",
+    "Status": "Rough Draft"
+  },
+  {
+    "Question": "5",
+    "Name": "Root",
+    "Beginner": "X",
+    "Intermediate": "X",
+    "Advanced": "X",
+    "What does this do?": "Use the quadratic formula to solve the\nroots of a quadratic equation.",
+    "Clean Version": "# Coefficients for: ax² + bx + c = 0\na, b, c = 1, 3, -4\n\n# Discriminant (b² − 4ac)\nd = b**2 - 4*a*c            # 25\n\n# Two roots (± branch)\nroot1 = (-b + d**0.5) / (2*a)\nroot2 = (-b - d**0.5) / (2*a)\n\nprint(\"Root 1:\", root1)\nprint(\"Root 2:\", root2)",
+    "Messy Version": "root1 = (-3 + (3**2 - 4 * 1 * (-4))**0.5) / (2 * 1)\nroot2 = (-3 + (3**2 - 4 * 1 * (-4))**0.5) / (2 * 1)\n\nprint(\"Root 1: \", root1)\nprint(\"Root 2: \", root2)",
+    "Status": "Rough Draft"
+  },
+  {
+    "Question": "6",
+    "Name": "Password",
+    "Beginner": "X",
+    "Intermediate": "X",
+    "Advanced": "X",
+    "What does this do?": "Check whether a password meets certain requirements.",
+    "Clean Version": "prior_password = 'ilikedogs'\npassword = 'ilovedogsalot'\n\nMIN_PASSWORD_LENGTH = 12\n\n# Check if password is good to use\nhas_letters = checks_for_letters(password)\nhas_numbers = checks_for_numbers(password)\n\nif not isinstance(password, str):\n    print('Not usable: password is not a string')\nelif len(password) < MIN_PASSWORD_LENGTH:\n    print('Not usable: password is too short')\nelif password == prior_password:\n    print('Not usable: password is same as previous one')\nelif not has_letters and not has_numbers:\n    print('Not usable: needs both letters and numbers')\nelse:\n    print('Password is great')",
+    "Messy Version": "prior_password = 'ilikedogs'\npassword = 'ilovedogsalot'\n\nMIN_PASSWORD_LENGTH = 12\n\n# Check if password is good to use\n\nhas_letters = checks_for_letters(password)\nhas_numbers = checks_for_numbers(password)\n\nif isinstance(password, str):\n    if len(password)>=MIN_PASSWORD_LENGTH:\n        if password != prior_password:\n            if has_letters and has_numbers:\n               print('Password is great')\n            else:\n                print('Not usable: needs both letters and numbers')\n        else:\n            print('Not usable: password is same as previous one')\n    else:\n        print('Not usable: password is too short')\nelse:\n    print('Not usable: password is not a string')",
+    "Status": "Rough Draft"
+  }
+]

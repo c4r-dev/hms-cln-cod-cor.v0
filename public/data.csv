@@ -1,0 +1,123 @@
+Question,Name,Beginner,Intermediate,Advanced,What does this do?,Clean Version,Messy Version,Status
+1,Absolute Difference,X,X,X,Computes the absolute difference between two numbers.,"a = 935
+b = 10.3
+
+if a >= b:
+  absolute_difference = a - b
+elif a < b:
+  absolute_difference = b - a",Ad = 935-10.3 if 935>10.3 else 10.3-935 if 10.3<935 else 0,Rough Draft
+2,Credit Card,X,X,X,Determines the credit card eligibility of a customer at a bank.,"is_member_of_bank = True    
+income = 40000    
+credit_score = 400    
+age = 23    
+
+
+if age < 18:
+    print(""Ineligible: not old enough"")
+elif income < 25_000:
+    print(""Ineligible: low income level"")
+elif credit_score < 600:
+    print(""Ineligible: low credit score"")
+elif not bank_member:
+    print(""Ineligible: not a bank member"")
+else:
+    print(""Eligible for credit card"")","is_member_of_bank = True    
+income = 40000    
+credit_score = 400    
+age = 23    
+if age >= 18:    
+    if income >= 25000:    
+        if credit_score >= 600:    
+            if is_member_of_bank:    
+                print('Eligible for credit card')    
+            else:    
+                print('Ineligible: not a bank member')    
+        else:    
+                print('Ineligible: low credit score')    
+    else:    
+        print('Ineligible: low income level')    
+else:    
+    print('Ineligible: not old enough')",Rough Draft
+3,Rollercoaster,X,X,X,Check a person's height and age to determine whether they're allowed to ride a rollercoaster.,"rider_height = 5.2
+rider_age = 12
+
+MINIMUM_RIDER_HEIGHT = 5
+MINIMUM_RIDER_AGE = 11
+
+if (rider_height > MINIMUM_RIDER_HEIGHT) and (rider_age > MINIMUM_RIDER_AGE):
+    print('Can ride a rollercoaster')","rdrhgt = 5.2 
+a = 5 
+ 
+if (rdrhgt > 5) and (a > 11):
+   print('Can ride a rollercoaster')",Rough Draft
+4,Fizz buzz,X,X,X,"Prints numbers from 1 to 100, except print ""Hum"" for numbers divisible by 3, ""Bug"" for numbers divisible by 5, and ""HumBug"" for numbers divisible by both 3 and 5.
+
+See Fizz buzz - Wikipedia.
+","for num in range(1, 101):
+    if (num % 5 == 0) and (num % 3 == 0):
+        print('Fizzbuzz')
+    elif num % 3 == 0:
+        print(''Fizz')
+    elif num % 5 == 0:
+        print('Buzz')
+    else:
+        print(num)","print(*['Fizzbuzz' if ((num % 5 == 0) and (num % 3 == 0) else 'Fizz' if num % 3 == 0 else 'Buzz' if num % 5 == 0 else 'Fizz' if num % 3 == 0 else num for num in range(1, 101)], sep='
+')",Rough Draft
+5,Root,X,X,X,"Use the quadratic formula to solve the
+roots of a quadratic equation.","# Coefficients for: ax² + bx + c = 0
+a, b, c = 1, 3, -4
+
+# Discriminant (b² − 4ac)
+d = b**2 - 4*a*c            # 25
+
+# Two roots (± branch)
+root1 = (-b + d**0.5) / (2*a)
+root2 = (-b - d**0.5) / (2*a)
+
+print(""Root 1:"", root1)
+print(""Root 2:"", root2)","root1 = (-3 + (3**2 - 4 * 1 * (-4))**0.5) / (2 * 1)
+root2 = (-3 + (3**2 - 4 * 1 * (-4))**0.5) / (2 * 1)
+
+print(""Root 1: "", root1)
+print(""Root 2: "", root2)",Rough Draft
+6,Password,X,X,X,Check whether a password meets certain requirements.,"prior_password = 'ilikedogs'
+password = 'ilovedogsalot'
+
+MIN_PASSWORD_LENGTH = 12
+
+# Check if password is good to use
+has_letters = checks_for_letters(password)
+has_numbers = checks_for_numbers(password)
+
+if not isinstance(password, str):
+    print('Not usable: password is not a string')
+elif len(password) < MIN_PASSWORD_LENGTH:
+    print('Not usable: password is too short')
+elif password == prior_password:
+    print('Not usable: password is same as previous one')
+elif not has_letters and not has_numbers:
+    print('Not usable: needs both letters and numbers')
+else:
+    print('Password is great')","prior_password = 'ilikedogs'
+password = 'ilovedogsalot'
+
+MIN_PASSWORD_LENGTH = 12
+
+# Check if password is good to use
+
+has_letters = checks_for_letters(password)
+has_numbers = checks_for_numbers(password)
+
+if isinstance(password, str):
+    if len(password)>=MIN_PASSWORD_LENGTH:
+        if password != prior_password:
+            if has_letters and has_numbers:
+               print('Password is great')
+            else:
+                print('Not usable: needs both letters and numbers')
+        else:
+            print('Not usable: password is same as previous one')
+    else:
+        print('Not usable: password is too short')
+else:
+    print('Not usable: password is not a string')",Rough Draft
