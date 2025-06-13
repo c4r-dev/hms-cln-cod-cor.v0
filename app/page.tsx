@@ -107,11 +107,11 @@ export default function Home() {
                       </button>
                       <button 
                         style={getButtonStyle(false)}
-                        onClick={() => handleAnswer("I'M NOT SURE")}
+                        onClick={() => handleAnswer("I&apos;M NOT SURE")}
                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#6F00FF'}
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#020202'}
                       >
-                        I'M NOT SURE
+                        I&apos;M NOT SURE
                       </button>
                     </>
                   ) : (
@@ -126,11 +126,11 @@ export default function Home() {
                       </button>
                       <button 
                         style={getButtonStyle(false)}
-                        onClick={() => handleAnswer("I'M NOT SURE")}
+                        onClick={() => handleAnswer("I&apos;M NOT SURE")}
                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#6F00FF'}
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#020202'}
                       >
-                        I'M NOT SURE
+                        I&apos;M NOT SURE
                       </button>
                       <button 
                         style={getButtonStyle(false)}
