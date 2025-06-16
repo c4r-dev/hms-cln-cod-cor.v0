@@ -26,7 +26,7 @@ export default function Home() {
     }>;
   }>({ sessionId: '', startTime: 0, responses: [] });
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [summarizedData, setSummarizedData] = useState<any[]>([]);
   const [currentAnswer, setCurrentAnswer] = useState('');
   const [textInput, setTextInput] = useState('');
   const [showNextButton, setShowNextButton] = useState(false);
@@ -37,7 +37,7 @@ export default function Home() {
     borderRadius: '4px',
     cursor: disabled ? 'not-allowed' : 'pointer',
     fontSize: '1rem',
-    backgroundColor: disabled ? '#ccc' : isSelected ? '#4A0080' : '#020202',
+    backgroundColor: disabled ? '#ccc' : isSelected ? 'rgba(111, 0, 255, 0.8)' : '#020202',
     color: disabled ? '#666' : 'white',
     width: 'fit-content',
   });
@@ -163,6 +163,29 @@ export default function Home() {
     } else {
       setShowNextButton(false);
     }
+  };
+
+  const summarizeDataByQuestionIndex = (submissions: any[]) => {
+    const questionMap = new Map();
+    
+    // Process all submissions and their responses
+    submissions.forEach(submission => {
+      if (submission.responses && Array.isArray(submission.responses)) {
+        submission.responses.forEach((response: any) => {
+          const key = response.questionIndex;
+          if (!questionMap.has(key)) {
+            questionMap.set(key, {
+              questionIndex: key,
+              questionName: response.questionName,
+              totalResponses: 0
+            });
+          }
+          questionMap.get(key).totalResponses++;
+        });
+      }
+    });
+    
+    return Array.from(questionMap.values()).sort((a, b) => a.questionName.localeCompare(b.questionName));
   };
 
   return (
@@ -324,7 +347,11 @@ export default function Home() {
                     const submissionsResponse = await fetch('/api/submissions');
                     if (submissionsResponse.ok) {
                       const submissionsData = await submissionsResponse.json();
-                      setSubmissions(submissionsData.cleanCodeSubmissions || []);
+                      const cleanCodeSubmissions = submissionsData.cleanCodeSubmissions || [];
+                      
+                      // Summarize data by questionIndex
+                      const summarized = summarizeDataByQuestionIndex(cleanCodeSubmissions);
+                      setSummarizedData(summarized);
                     }
                     
                     // Scroll down to new section after successful submission
@@ -352,28 +379,13 @@ export default function Home() {
           <div style={{ display: 'flex', flexDirection: 'column', padding: '24px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
             <h2 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '16px', textAlign: 'center' }}>Submitted Data</h2>
             
-            {submissions.length > 0 ? (
+            {summarizedData.length > 0 ? (
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                  <thead>
-                    <tr style={{ backgroundColor: '#e5e7eb' }}>
-                      <th style={{ border: '1px solid #d1d5db', padding: '8px', textAlign: 'left' }}>Session ID</th>
-                      <th style={{ border: '1px solid #d1d5db', padding: '8px', textAlign: 'left' }}>Start Time</th>
-                      <th style={{ border: '1px solid #d1d5db', padding: '8px', textAlign: 'left' }}>Responses Count</th>
-                      <th style={{ border: '1px solid #d1d5db', padding: '8px', textAlign: 'left' }}>Submitted</th>
-                    </tr>
-                  </thead>
                   <tbody>
-                    {submissions.map((submission, index) => (
-                      <tr key={submission._id || index} style={{ backgroundColor: index % 2 === 0 ? '#f9fafb' : '#ffffff' }}>
-                        <td style={{ border: '1px solid #d1d5db', padding: '8px' }}>{submission.sessionId}</td>
-                        <td style={{ border: '1px solid #d1d5db', padding: '8px' }}>
-                          {new Date(submission.startTime).toLocaleString()}
-                        </td>
-                        <td style={{ border: '1px solid #d1d5db', padding: '8px' }}>{submission.responses?.length || 0}</td>
-                        <td style={{ border: '1px solid #d1d5db', padding: '8px' }}>
-                          {new Date(submission.timestamp).toLocaleString()}
-                        </td>
+                    {summarizedData.map((item, index) => (
+                      <tr key={item.questionIndex || index} style={{ backgroundColor: index % 2 === 0 ? '#f9fafb' : '#ffffff' }}>
+                        <td style={{ border: '1px solid #d1d5db', padding: '8px' }}>{item.questionName}</td>
                       </tr>
                     ))}
                   </tbody>
