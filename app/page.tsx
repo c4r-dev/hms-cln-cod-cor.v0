@@ -10,6 +10,23 @@ export default function Home() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [currentSubQuestion, setCurrentSubQuestion] = useState(1);
   const [currentCodeVersion, setCurrentCodeVersion] = useState<'Clean' | 'Messy'>('Clean');
+  const [questionStartTime, setQuestionStartTime] = useState<number>(0);
+  const [userData, setUserData] = useState<{
+    sessionId: string;
+    startTime: number;
+    responses: Array<{
+      questionIndex: string;
+      questionName: string;
+      codeVersion: 'Clean' | 'Messy';
+      subQuestion: number;
+      subQuestionText: string;
+      answer: string;
+      timeSpent: number;
+      timestamp: number;
+    }>;
+  }>({ sessionId: '', startTime: 0, responses: [] });
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submissions, setSubmissions] = useState<any[]>([]);
 
   const getButtonStyle = (disabled: boolean): React.CSSProperties => ({
     padding: '10px 15px',
@@ -33,8 +50,17 @@ export default function Home() {
 
   const handleStartClick = () => {
     const shuffled = shuffleArray(data);
+    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+    const startTime = Date.now();
+    
     setShuffledData(shuffled);
     setCurrentCodeVersion(Math.random() < 0.5 ? 'Clean' : 'Messy');
+    setUserData({
+      sessionId,
+      startTime,
+      responses: []
+    });
+    setQuestionStartTime(startTime);
     setShowContent(true);
     // Scroll to bottom when first question appears
     setTimeout(() => {
@@ -43,11 +69,34 @@ export default function Home() {
   };
 
   const handleAnswer = (answer: string) => {
-    console.log(`Question ${currentQuestionIndex + 1}, Sub-question ${currentSubQuestion} (${currentCodeVersion} Version): ${answer}`);
+    const currentTime = Date.now();
+    const timeSpent = currentTime - questionStartTime;
+    
+    // Record the response
+    const response = {
+      questionIndex: shuffledData[currentQuestionIndex]?.Question || '',
+      questionName: shuffledData[currentQuestionIndex]?.Name || '',
+      codeVersion: currentCodeVersion,
+      subQuestion: currentSubQuestion,
+      subQuestionText: currentSubQuestion === 1 
+        ? "Can you tell what this code is meant to do?"
+        : "Do you see any problems with this code?",
+      answer,
+      timeSpent,
+      timestamp: currentTime
+    };
+    
+    setUserData(prev => ({
+      ...prev,
+      responses: [...prev.responses, response]
+    }));
+    
+    console.log(`Question ${currentQuestionIndex + 1}, Sub-question ${currentSubQuestion} (${currentCodeVersion} Version): ${answer} - Time: ${timeSpent}ms`);
     
     if (currentSubQuestion === 1) {
       // Move to second sub-question, keep same code version
       setCurrentSubQuestion(2);
+      setQuestionStartTime(currentTime);
       // Scroll to bottom when sub-question changes
       setTimeout(() => {
         window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
@@ -57,6 +106,7 @@ export default function Home() {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setCurrentSubQuestion(1);
       setCurrentCodeVersion(Math.random() < 0.5 ? 'Clean' : 'Messy');
+      setQuestionStartTime(currentTime);
       // Scroll to bottom when next question appears
       setTimeout(() => {
         window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
@@ -119,11 +169,11 @@ export default function Home() {
                       </button>
                       <button 
                         style={getButtonStyle(false)}
-                        onClick={() => handleAnswer("I&apos;M NOT SURE")}
+                        onClick={() => handleAnswer("I AM NOT SURE")}
                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#6F00FF'}
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#020202'}
                       >
-                        I&apos;M NOT SURE
+                        I AM NOT SURE
                       </button>
                     </>
                   ) : (
@@ -138,11 +188,11 @@ export default function Home() {
                       </button>
                       <button 
                         style={getButtonStyle(false)}
-                        onClick={() => handleAnswer("I&apos;M NOT SURE")}
+                        onClick={() => handleAnswer("I AM NOT SURE")}
                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#6F00FF'}
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#020202'}
                       >
-                        I&apos;M NOT SURE
+                        I AM NOT SURE
                       </button>
                       <button 
                         style={getButtonStyle(false)}
@@ -157,6 +207,96 @@ export default function Home() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+      
+      {showContent && shuffledData.length > 0 && currentQuestionIndex >= shuffledData.length && (
+        <div style={{ backgroundColor: '#f3f4f6', border: '1px solid black', borderRadius: '8px', padding: '24px', marginBottom: '32px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+            <h2 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '16px', textAlign: 'center' }}>You have completed all questions!</h2>
+            <button 
+              style={getButtonStyle(false)}
+              onClick={async () => {
+                console.log('Continue button clicked');
+                console.log('Complete user data:', JSON.stringify(userData, null, 2));
+                
+                try {
+                  const response = await fetch('/api/submissions', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(userData),
+                  });
+                  
+                  if (response.ok) {
+                    const result = await response.json();
+                    console.log('Data saved successfully:', result);
+                    setIsSubmitted(true);
+                    
+                    // Fetch updated submissions
+                    const submissionsResponse = await fetch('/api/submissions');
+                    if (submissionsResponse.ok) {
+                      const submissionsData = await submissionsResponse.json();
+                      setSubmissions(submissionsData.cleanCodeSubmissions || []);
+                    }
+                    
+                    // Scroll down to new section after successful submission
+                    setTimeout(() => {
+                      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                    }, 100);
+                  } else {
+                    console.error('Failed to save data');
+                  }
+                } catch (error) {
+                  console.error('Error submitting data:', error);
+                }
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#6F00FF'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#020202'}
+            >
+              SUBMIT
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {isSubmitted && (
+        <div style={{ backgroundColor: '#f3f4f6', border: '1px solid black', borderRadius: '8px', padding: '24px', marginBottom: '32px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', padding: '24px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '16px', textAlign: 'center' }}>Submitted Data</h2>
+            
+            {submissions.length > 0 ? (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#e5e7eb' }}>
+                      <th style={{ border: '1px solid #d1d5db', padding: '8px', textAlign: 'left' }}>Session ID</th>
+                      <th style={{ border: '1px solid #d1d5db', padding: '8px', textAlign: 'left' }}>Start Time</th>
+                      <th style={{ border: '1px solid #d1d5db', padding: '8px', textAlign: 'left' }}>Responses Count</th>
+                      <th style={{ border: '1px solid #d1d5db', padding: '8px', textAlign: 'left' }}>Submitted</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {submissions.map((submission, index) => (
+                      <tr key={submission._id || index} style={{ backgroundColor: index % 2 === 0 ? '#f9fafb' : '#ffffff' }}>
+                        <td style={{ border: '1px solid #d1d5db', padding: '8px' }}>{submission.sessionId}</td>
+                        <td style={{ border: '1px solid #d1d5db', padding: '8px' }}>
+                          {new Date(submission.startTime).toLocaleString()}
+                        </td>
+                        <td style={{ border: '1px solid #d1d5db', padding: '8px' }}>{submission.responses?.length || 0}</td>
+                        <td style={{ border: '1px solid #d1d5db', padding: '8px' }}>
+                          {new Date(submission.timestamp).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p style={{ textAlign: 'center', color: '#666', fontStyle: 'italic' }}>No submissions found.</p>
+            )}
           </div>
         </div>
       )}

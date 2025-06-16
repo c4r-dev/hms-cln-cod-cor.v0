@@ -18,8 +18,35 @@ const submissionSchema = new mongoose.Schema({
   }
 });
 
-// Create or get the model
+// Define the cleanCodeCorrRead schema for userData
+const cleanCodeCorrReadSchema = new mongoose.Schema({
+  sessionId: {
+    type: String,
+    required: true
+  },
+  startTime: {
+    type: Number,
+    required: true
+  },
+  responses: [{
+    questionIndex: String,
+    questionName: String,
+    codeVersion: String,
+    subQuestion: Number,
+    subQuestionText: String,
+    answer: String,
+    timeSpent: Number,
+    timestamp: Number
+  }],
+  timestamp: {
+    type: Date,
+    default: Date.now
+  }
+});
+
+// Create or get the models
 const Submission = mongoose.models.dinstimneg || mongoose.model('dinstimneg', submissionSchema);
+const CleanCodeCorrRead = mongoose.models.cleanCodeCorrRead || mongoose.model('cleanCodeCorrRead', cleanCodeCorrReadSchema);
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,7 +59,17 @@ export async function POST(request: NextRequest) {
     
     await dbConnect();
     
-    const { tableAnalysis, graphAnalysis } = await request.json();
+    const body = await request.json();
+    
+    // Check if this is userData submission (for cleanCodeCorrRead)
+    if (body.sessionId && body.responses) {
+      const cleanCodeSubmission = new CleanCodeCorrRead(body);
+      await cleanCodeSubmission.save();
+      return NextResponse.json({ success: true, id: cleanCodeSubmission._id, collection: 'cleanCodeCorrRead' });
+    }
+    
+    // Original submission logic for tableAnalysis/graphAnalysis
+    const { tableAnalysis, graphAnalysis } = body;
     
     if (!tableAnalysis || !graphAnalysis) {
       return NextResponse.json(
@@ -69,14 +106,21 @@ export async function GET() {
     
     await dbConnect();
     
-    // Get the last 30 submissions, sorted by timestamp descending
+    // Get the last 30 submissions from cleanCodeCorrRead, sorted by timestamp descending
+    const cleanCodeSubmissions = await CleanCodeCorrRead
+      .find({})
+      .sort({ timestamp: -1 })
+      .limit(30)
+      .lean();
+    
+    // Get the last 30 submissions from original collection, sorted by timestamp descending
     const submissions = await Submission
       .find({})
       .sort({ timestamp: -1 })
       .limit(30)
       .lean();
     
-    return NextResponse.json({ submissions });
+    return NextResponse.json({ submissions, cleanCodeSubmissions });
   } catch (error) {
     console.error('Error fetching submissions:', error);
     return NextResponse.json(
