@@ -263,7 +263,9 @@ export default function Home() {
         const subQuestionLabel = subQuestion === 'subQuestion1' ? 'Q1: Can tell what code does?' : 'Q2: See problems?';
         const subQuestionStartX = currentX;
         
-        Object.entries(answers).forEach(([answer, stats]: [string, any]) => {
+        Object.entries(answers)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .forEach(([answer, stats]: [string, any]) => {
           maxTime = Math.max(maxTime, stats.averageTime);
           allBars.push({
             x: currentX,
