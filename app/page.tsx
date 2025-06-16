@@ -27,14 +27,17 @@ export default function Home() {
   }>({ sessionId: '', startTime: 0, responses: [] });
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [submissions, setSubmissions] = useState<any[]>([]);
+  const [currentAnswer, setCurrentAnswer] = useState('');
+  const [textInput, setTextInput] = useState('');
+  const [showNextButton, setShowNextButton] = useState(false);
 
-  const getButtonStyle = (disabled: boolean): React.CSSProperties => ({
+  const getButtonStyle = (disabled: boolean, isSelected: boolean = false): React.CSSProperties => ({
     padding: '10px 15px',
     border: 'none',
     borderRadius: '4px',
     cursor: disabled ? 'not-allowed' : 'pointer',
     fontSize: '1rem',
-    backgroundColor: disabled ? '#ccc' : '#020202',
+    backgroundColor: disabled ? '#ccc' : isSelected ? '#4A0080' : '#020202',
     color: disabled ? '#666' : 'white',
     width: 'fit-content',
   });
@@ -69,19 +72,62 @@ export default function Home() {
   };
 
   const handleAnswer = (answer: string) => {
+    if (currentSubQuestion === 1) {
+      // For first sub-question, proceed immediately
+      const currentTime = Date.now();
+      const timeSpent = currentTime - questionStartTime;
+      
+      const response = {
+        questionIndex: shuffledData[currentQuestionIndex]?.Question || '',
+        questionName: shuffledData[currentQuestionIndex]?.Name || '',
+        codeVersion: currentCodeVersion,
+        subQuestion: currentSubQuestion,
+        subQuestionText: "Can you tell what this code is meant to do?",
+        answer,
+        timeSpent,
+        timestamp: currentTime
+      };
+      
+      setUserData(prev => ({
+        ...prev,
+        responses: [...prev.responses, response]
+      }));
+      
+      console.log(`Question ${currentQuestionIndex + 1}, Sub-question ${currentSubQuestion} (${currentCodeVersion} Version): ${answer} - Time: ${timeSpent}ms`);
+      
+      // Move to second sub-question
+      setCurrentSubQuestion(2);
+      setCurrentAnswer('');
+      setTextInput('');
+      setShowNextButton(false);
+      setQuestionStartTime(currentTime);
+      
+      setTimeout(() => {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      }, 100);
+    } else {
+      // For second sub-question, just store the answer and show next button if text is entered
+      setCurrentAnswer(answer);
+      if (answer !== '' && textInput.trim() !== '') {
+        setShowNextButton(true);
+      }
+    }
+  };
+
+  const handleNextExample = () => {
     const currentTime = Date.now();
     const timeSpent = currentTime - questionStartTime;
     
-    // Record the response
+    // Combine button answer and text input
+    const combinedAnswer = currentAnswer + (textInput.trim() ? ` - ${textInput.trim()}` : '');
+    
     const response = {
       questionIndex: shuffledData[currentQuestionIndex]?.Question || '',
       questionName: shuffledData[currentQuestionIndex]?.Name || '',
       codeVersion: currentCodeVersion,
       subQuestion: currentSubQuestion,
-      subQuestionText: currentSubQuestion === 1 
-        ? "Can you tell what this code is meant to do?"
-        : "Do you see any problems with this code?",
-      answer,
+      subQuestionText: "Do you see any problems with this code?",
+      answer: combinedAnswer,
       timeSpent,
       timestamp: currentTime
     };
@@ -91,47 +137,54 @@ export default function Home() {
       responses: [...prev.responses, response]
     }));
     
-    console.log(`Question ${currentQuestionIndex + 1}, Sub-question ${currentSubQuestion} (${currentCodeVersion} Version): ${answer} - Time: ${timeSpent}ms`);
+    console.log(`Question ${currentQuestionIndex + 1}, Sub-question ${currentSubQuestion} (${currentCodeVersion} Version): ${combinedAnswer} - Time: ${timeSpent}ms`);
     
-    if (currentSubQuestion === 1) {
-      // Move to second sub-question, keep same code version
-      setCurrentSubQuestion(2);
-      setQuestionStartTime(currentTime);
-      // Scroll to bottom when sub-question changes
-      setTimeout(() => {
-        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-      }, 100);
+    // Move to next question
+    setCurrentQuestionIndex(currentQuestionIndex + 1);
+    setCurrentSubQuestion(1);
+    setCurrentCodeVersion(Math.random() < 0.5 ? 'Clean' : 'Messy');
+    setCurrentAnswer('');
+    setTextInput('');
+    setShowNextButton(false);
+    setQuestionStartTime(currentTime);
+    
+    setTimeout(() => {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }, 100);
+  };
+
+  const handleTextInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setTextInput(value);
+    
+    // Show next button if both answer is selected and text is entered
+    if (currentAnswer !== '' && value.trim() !== '') {
+      setShowNextButton(true);
     } else {
-      // Move to next question and randomly select new code version
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
-      setCurrentSubQuestion(1);
-      setCurrentCodeVersion(Math.random() < 0.5 ? 'Clean' : 'Messy');
-      setQuestionStartTime(currentTime);
-      // Scroll to bottom when next question appears
-      setTimeout(() => {
-        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-      }, 100);
+      setShowNextButton(false);
     }
   };
 
   return (
     <div style={{ padding: '20px', maxWidth: '90%', margin: '20px auto 20px auto' }}>
-      <div style={{ backgroundColor: '#f3f4f6', border: '1px solid black', borderRadius: '8px', padding: '24px', marginBottom: '32px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
-          <h2 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '16px' }}>This activity works best when you complete it in one sitting.  Take a second to make sure you have about 5 uninterrupted minutes to complete, then click the button below to start!</h2>
-          <button 
-            style={getButtonStyle(showContent)}
-            onClick={handleStartClick}
-            disabled={showContent}
-            onMouseEnter={(e) => !showContent && (e.currentTarget.style.backgroundColor = '#6F00FF')}
-            onMouseLeave={(e) => !showContent && (e.currentTarget.style.backgroundColor = '#020202')}
-          >
-            START
-          </button>
+      {!isSubmitted && (
+        <div style={{ backgroundColor: '#f3f4f6', border: '1px solid black', borderRadius: '8px', padding: '24px', marginBottom: '32px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+            <h2 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '16px' }}>This activity works best when you complete it in one sitting.  Take a second to make sure you have about 5 uninterrupted minutes to complete, then click the button below to start!</h2>
+            <button 
+              style={getButtonStyle(showContent)}
+              onClick={handleStartClick}
+              disabled={showContent}
+              onMouseEnter={(e) => !showContent && (e.currentTarget.style.backgroundColor = '#6F00FF')}
+              onMouseLeave={(e) => !showContent && (e.currentTarget.style.backgroundColor = '#020202')}
+            >
+              START
+            </button>
+          </div>
         </div>
-      </div>
+      )}
       
-      {showContent && shuffledData.length > 0 && currentQuestionIndex < shuffledData.length && (
+      {!isSubmitted && showContent && shuffledData.length > 0 && currentQuestionIndex < shuffledData.length && (
         <div style={{ backgroundColor: '#f3f4f6', border: '1px solid black', borderRadius: '8px', padding: '24px', marginBottom: '32px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
           <div style={{ display: 'flex', flexDirection: 'column', padding: '24px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
             <div style={{ marginBottom: '24px' }}>
@@ -160,18 +213,18 @@ export default function Home() {
                   {currentSubQuestion === 1 ? (
                     <>
                       <button 
-                        style={getButtonStyle(false)}
+                        style={getButtonStyle(false, currentAnswer === 'YES')}
                         onClick={() => handleAnswer('YES')}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#6F00FF'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#020202'}
+                        onMouseEnter={(e) => currentAnswer !== 'YES' && (e.currentTarget.style.backgroundColor = '#6F00FF')}
+                        onMouseLeave={(e) => currentAnswer !== 'YES' && (e.currentTarget.style.backgroundColor = '#020202')}
                       >
                         YES
                       </button>
                       <button 
-                        style={getButtonStyle(false)}
+                        style={getButtonStyle(false, currentAnswer === 'I AM NOT SURE')}
                         onClick={() => handleAnswer("I AM NOT SURE")}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#6F00FF'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#020202'}
+                        onMouseEnter={(e) => currentAnswer !== 'I AM NOT SURE' && (e.currentTarget.style.backgroundColor = '#6F00FF')}
+                        onMouseLeave={(e) => currentAnswer !== 'I AM NOT SURE' && (e.currentTarget.style.backgroundColor = '#020202')}
                       >
                         I AM NOT SURE
                       </button>
@@ -179,39 +232,71 @@ export default function Home() {
                   ) : (
                     <>
                       <button 
-                        style={getButtonStyle(false)}
+                        style={getButtonStyle(false, currentAnswer === 'YES')}
                         onClick={() => handleAnswer('YES')}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#6F00FF'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#020202'}
+                        onMouseEnter={(e) => currentAnswer !== 'YES' && (e.currentTarget.style.backgroundColor = '#6F00FF')}
+                        onMouseLeave={(e) => currentAnswer !== 'YES' && (e.currentTarget.style.backgroundColor = '#020202')}
                       >
                         YES
                       </button>
                       <button 
-                        style={getButtonStyle(false)}
+                        style={getButtonStyle(false, currentAnswer === 'I AM NOT SURE')}
                         onClick={() => handleAnswer("I AM NOT SURE")}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#6F00FF'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#020202'}
+                        onMouseEnter={(e) => currentAnswer !== 'I AM NOT SURE' && (e.currentTarget.style.backgroundColor = '#6F00FF')}
+                        onMouseLeave={(e) => currentAnswer !== 'I AM NOT SURE' && (e.currentTarget.style.backgroundColor = '#020202')}
                       >
                         I AM NOT SURE
                       </button>
                       <button 
-                        style={getButtonStyle(false)}
+                        style={getButtonStyle(false, currentAnswer === 'NO')}
                         onClick={() => handleAnswer('NO')}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#6F00FF'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#020202'}
+                        onMouseEnter={(e) => currentAnswer !== 'NO' && (e.currentTarget.style.backgroundColor = '#6F00FF')}
+                        onMouseLeave={(e) => currentAnswer !== 'NO' && (e.currentTarget.style.backgroundColor = '#020202')}
                       >
                         NO
                       </button>
                     </>
                   )}
                 </div>
+                
+                {currentSubQuestion === 2 && (
+                  <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                    <textarea
+                      placeholder="What problems do you see with this code?"
+                      value={textInput}
+                      onChange={handleTextInputChange}
+                      style={{
+                        width: '80%',
+                        minHeight: '100px',
+                        padding: '12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '8px',
+                        fontSize: '1rem',
+                        fontFamily: 'inherit',
+                        resize: 'vertical',
+                        backgroundColor: '#ffffff'
+                      }}
+                    />
+                    
+                    {showNextButton && (
+                      <button 
+                        style={getButtonStyle(false)}
+                        onClick={handleNextExample}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#6F00FF'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#020202'}
+                      >
+                        NEXT EXAMPLE
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
         </div>
       )}
       
-      {showContent && shuffledData.length > 0 && currentQuestionIndex >= shuffledData.length && (
+      {!isSubmitted && showContent && shuffledData.length > 0 && currentQuestionIndex >= shuffledData.length && (
         <div style={{ backgroundColor: '#f3f4f6', border: '1px solid black', borderRadius: '8px', padding: '24px', marginBottom: '32px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
             <h2 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '16px', textAlign: 'center' }}>You have completed all questions!</h2>
