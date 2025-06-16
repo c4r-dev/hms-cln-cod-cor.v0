@@ -36,6 +36,10 @@ export default function Home() {
     setShuffledData(shuffled);
     setCurrentCodeVersion(Math.random() < 0.5 ? 'Clean' : 'Messy');
     setShowContent(true);
+    // Scroll to bottom when first question appears
+    setTimeout(() => {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }, 100);
   };
 
   const handleAnswer = (answer: string) => {
@@ -44,11 +48,19 @@ export default function Home() {
     if (currentSubQuestion === 1) {
       // Move to second sub-question, keep same code version
       setCurrentSubQuestion(2);
+      // Scroll to bottom when sub-question changes
+      setTimeout(() => {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      }, 100);
     } else {
       // Move to next question and randomly select new code version
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setCurrentSubQuestion(1);
       setCurrentCodeVersion(Math.random() < 0.5 ? 'Clean' : 'Messy');
+      // Scroll to bottom when next question appears
+      setTimeout(() => {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      }, 100);
     }
   };
 
@@ -76,9 +88,9 @@ export default function Home() {
               <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '8px', textAlign: 'center' }}>
                 {shuffledData[currentQuestionIndex].Name}
               </h3>
-              <p style={{ fontSize: '1rem', marginBottom: '16px', color: '#666', textAlign: 'center' }}>
+              {/* <p style={{ fontSize: '1rem', marginBottom: '16px', color: '#666', textAlign: 'center' }}>
                 {shuffledData[currentQuestionIndex]["What does this do?"]}
-              </p>
+              </p> */}
               <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
                 <div style={{ width: '80%', backgroundColor: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
                   <pre style={{ fontSize: '0.875rem', fontFamily: 'monospace', whiteSpace: 'pre-wrap', margin: '0', color: '#374151' }}>
