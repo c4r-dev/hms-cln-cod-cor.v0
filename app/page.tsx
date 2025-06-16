@@ -37,7 +37,7 @@ export default function Home() {
     borderRadius: '4px',
     cursor: disabled ? 'not-allowed' : 'pointer',
     fontSize: '1rem',
-    backgroundColor: disabled ? '#ccc' : isSelected ? 'rgba(111, 0, 255, 0.8)' : '#020202',
+    backgroundColor: disabled ? '#ccc' : isSelected ? 'rgba(111, 0, 255, 0.6)' : '#020202',
     color: disabled ? '#666' : 'white',
     width: 'fit-content',
   });
