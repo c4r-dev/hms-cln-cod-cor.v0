@@ -956,7 +956,7 @@ export default function Home() {
                                   </p>
                                   {response.textInput && (
                                     <p style={{ fontSize: '0.75rem', color: '#475569', margin: 0, fontStyle: 'italic', backgroundColor: '#f9fafb', padding: '4px 8px', borderRadius: '3px' }}>
-                                      "{response.textInput}"
+                                      &quot;{response.textInput}&quot;
                                     </p>
                                   )}
                                 </div>
