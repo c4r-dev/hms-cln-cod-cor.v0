@@ -100,5 +100,5 @@ h2 {
 }
 /* */
 .button:hover {
-    background-color: #6F00FF; /* Hover color */
+    background-color: #6F00FF !important; /* Hover color */
 }
