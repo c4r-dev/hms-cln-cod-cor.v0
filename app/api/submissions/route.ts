@@ -113,14 +113,7 @@ export async function GET() {
       .limit(30)
       .lean();
     
-    // Get the last 30 submissions from original collection, sorted by timestamp descending
-    const submissions = await Submission
-      .find({})
-      .sort({ timestamp: -1 })
-      .limit(30)
-      .lean();
-    
-    return NextResponse.json({ submissions, cleanCodeSubmissions });
+    return NextResponse.json({ cleanCodeSubmissions });
   } catch (error) {
     console.error('Error fetching submissions:', error);
     return NextResponse.json(
