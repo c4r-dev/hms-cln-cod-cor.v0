@@ -140,7 +140,7 @@ export default function Home() {
       questionName: shuffledData[currentQuestionIndex]?.Name || '',
       codeVersion: currentCodeVersion,
       subQuestion: currentSubQuestion,
-      subQuestionText: "Do you see any problems with this code?",
+      subQuestionText: "Can you identify any bugs in this code?",
       answer: currentAnswer,
       textInput: textInput.trim(),
       timeSpent,
@@ -543,7 +543,7 @@ export default function Home() {
                 <h4 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '16px' }}>
                   {currentSubQuestion === 1 
                     ? "Can you tell what this code is meant to do?" 
-                    : "Do you see any problems with this code?"}
+                    : "Can you identify any bugs in this code?"}
                 </h4>
                 
                 <div style={{ 
