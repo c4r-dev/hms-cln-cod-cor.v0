@@ -3,12 +3,12 @@
 
 import React, { useState, useEffect } from 'react';
 import data from '../public/data.json';
+import CodeBlock from './components/CodeBlock';
 
 export default function Home() {
   const [showContent, setShowContent] = useState(false);
   const [shuffledData, setShuffledData] = useState<any[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [currentSubQuestion, setCurrentSubQuestion] = useState(1);
   const [currentCodeVersion, setCurrentCodeVersion] = useState<'Clean' | 'Messy'>('Clean');
   const [questionStartTime, setQuestionStartTime] = useState<number>(0);
   const [userData, setUserData] = useState<{
@@ -21,7 +21,6 @@ export default function Home() {
       subQuestion: number;
       subQuestionText: string;
       answer: string;
-      textInput?: string;
       timeSpent: number;
       timestamp: number;
     }>;
@@ -29,11 +28,14 @@ export default function Home() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [graphData, setGraphData] = useState<any>(null);
   const [currentAnswer, setCurrentAnswer] = useState('');
-  const [textInput, setTextInput] = useState('');
+  const [q1Answer, setQ1Answer] = useState('');
+  const [q2Answer, setQ2Answer] = useState('');
+  // Removed textInput state - no longer needed
   const [showNextButton, setShowNextButton] = useState(false);
   const [isLargeScreen, setIsLargeScreen] = useState(false);
   const [showReviewSection, setShowReviewSection] = useState(false);
   const [activeTabIndex, setActiveTabIndex] = useState(0);
+  const [activeCodeVersion, setActiveCodeVersion] = useState<'Messy' | 'Clean'>('Messy');
   const [rawSubmissions, setRawSubmissions] = useState<any[]>([]);
 
   useEffect(() => {
@@ -88,97 +90,119 @@ export default function Home() {
     }, 100);
   };
 
-  const handleAnswer = (answer: string) => {
-    if (currentSubQuestion === 1) {
-      // For first sub-question, proceed immediately
-      const currentTime = Date.now();
-      const timeSpent = currentTime - questionStartTime;
+  const handleQ1Answer = (answer: string) => {
+    setQ1Answer(answer);
+    // Show next button if both questions are answered
+    if (answer !== '' && q2Answer !== '') {
+      setShowNextButton(true);
+    }
+  };
+
+  const handleQ2Answer = (answer: string) => {
+    setQ2Answer(answer);
+    // Show next button if both questions are answered  
+    if (q1Answer !== '' && answer !== '') {
+      setShowNextButton(true);
+    }
+  };
+
+  const handleNextExample = async () => {
+    const currentTime = Date.now();
+    const timeSpent = currentTime - questionStartTime;
+    
+    // Save both responses
+    const q1Response = {
+      questionIndex: shuffledData[currentQuestionIndex]?.Question || '',
+      questionName: shuffledData[currentQuestionIndex]?.Name || '',
+      codeVersion: currentCodeVersion,
+      subQuestion: 1,
+      subQuestionText: "Can you tell what this code is meant to do?",
+      answer: q1Answer,
+      timeSpent,
+      timestamp: currentTime
+    };
+    
+    const q2Response = {
+      questionIndex: shuffledData[currentQuestionIndex]?.Question || '',
+      questionName: shuffledData[currentQuestionIndex]?.Name || '',
+      codeVersion: currentCodeVersion,
+      subQuestion: 2,
+      subQuestionText: "Can you identify any bugs in this code?",
+      answer: q2Answer,
+      timeSpent,
+      timestamp: currentTime
+    };
+    
+    const updatedUserData = {
+      ...userData,
+      responses: [...userData.responses, q1Response, q2Response]
+    };
+    
+    setUserData(updatedUserData);
+    
+    console.log(`Question ${currentQuestionIndex + 1} (${currentCodeVersion} Version): Q1: ${q1Answer}, Q2: ${q2Answer} - Time: ${timeSpent}ms`);
+    
+    // Check if this is the last question
+    if (currentQuestionIndex >= shuffledData.length - 1) {
+      // This is the final question - submit and show results
+      console.log('Final question completed, submitting data');
+      console.log('Complete user data:', JSON.stringify(updatedUserData, null, 2));
       
-      const response = {
-        questionIndex: shuffledData[currentQuestionIndex]?.Question || '',
-        questionName: shuffledData[currentQuestionIndex]?.Name || '',
-        codeVersion: currentCodeVersion,
-        subQuestion: currentSubQuestion,
-        subQuestionText: "Can you tell what this code is meant to do?",
-        answer,
-        timeSpent,
-        timestamp: currentTime
-      };
-      
-      setUserData(prev => ({
-        ...prev,
-        responses: [...prev.responses, response]
-      }));
-      
-      console.log(`Question ${currentQuestionIndex + 1}, Sub-question ${currentSubQuestion} (${currentCodeVersion} Version): ${answer} - Time: ${timeSpent}ms`);
-      
-      // Move to second sub-question
-      setCurrentSubQuestion(2);
-      setCurrentAnswer('');
-      setTextInput('');
+      try {
+        const response = await fetch('/api/submissions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updatedUserData),
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          console.log('Data saved successfully:', result);
+          setIsSubmitted(true);
+          setShowReviewSection(true);
+          
+          // Fetch updated submissions
+          const submissionsResponse = await fetch('/api/submissions');
+          if (submissionsResponse.ok) {
+            const submissionsData = await submissionsResponse.json();
+            const cleanCodeSubmissions = submissionsData.cleanCodeSubmissions || [];
+            
+            // Store raw submissions for question-specific calculations
+            setRawSubmissions(cleanCodeSubmissions);
+            
+            // Summarize data by code version, subquestions and answers
+            const graphData = summarizeDataByCodeVersionAndAnswer(cleanCodeSubmissions);
+            setGraphData(graphData);
+          }
+          
+          // Scroll to top after successful submission
+          setTimeout(() => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }, 100);
+        } else {
+          console.error('Failed to save data');
+        }
+      } catch (error) {
+        console.error('Error submitting data:', error);
+      }
+    } else {
+      // Move to next question
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+      setCurrentCodeVersion(Math.random() < 0.5 ? 'Clean' : 'Messy');
+      setQ1Answer('');
+      setQ2Answer('');
       setShowNextButton(false);
       setQuestionStartTime(currentTime);
       
       setTimeout(() => {
         window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
       }, 100);
-    } else {
-      // For second sub-question, just store the answer and show next button if text is entered
-      setCurrentAnswer(answer);
-      if (answer !== '' && textInput.trim() !== '') {
-        setShowNextButton(true);
-      }
     }
   };
 
-  const handleNextExample = () => {
-    const currentTime = Date.now();
-    const timeSpent = currentTime - questionStartTime;
-    
-    const response = {
-      questionIndex: shuffledData[currentQuestionIndex]?.Question || '',
-      questionName: shuffledData[currentQuestionIndex]?.Name || '',
-      codeVersion: currentCodeVersion,
-      subQuestion: currentSubQuestion,
-      subQuestionText: "Can you identify any bugs in this code?",
-      answer: currentAnswer,
-      textInput: textInput.trim(),
-      timeSpent,
-      timestamp: currentTime
-    };
-    
-    setUserData(prev => ({
-      ...prev,
-      responses: [...prev.responses, response]
-    }));
-    
-    console.log(`Question ${currentQuestionIndex + 1}, Sub-question ${currentSubQuestion} (${currentCodeVersion} Version): Button: ${currentAnswer}, Text: ${textInput.trim()} - Time: ${timeSpent}ms`);
-    
-    // Move to next question
-    setCurrentQuestionIndex(currentQuestionIndex + 1);
-    setCurrentSubQuestion(1);
-    setCurrentCodeVersion(Math.random() < 0.5 ? 'Clean' : 'Messy');
-    setCurrentAnswer('');
-    setTextInput('');
-    setShowNextButton(false);
-    setQuestionStartTime(currentTime);
-    
-    setTimeout(() => {
-      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-    }, 100);
-  };
-
-  const handleTextInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value;
-    setTextInput(value);
-    
-    // Show next button if both answer is selected and text is entered
-    if (currentAnswer !== '' && value.trim() !== '') {
-      setShowNextButton(true);
-    } else {
-      setShowNextButton(false);
-    }
-  };
+  // Removed handleTextInputChange - no longer needed
 
   const summarizeDataByCodeVersionAndAnswer = (submissions: any[]) => {
     const data: {
@@ -188,7 +212,6 @@ export default function Home() {
             count: number;
             totalTime: number;
             averageTime: number;
-            textInputs: string[];
           }
         }
       }
@@ -218,8 +241,7 @@ export default function Home() {
               data[codeVersion as 'Clean' | 'Messy'][subQuestionKey][answer] = {
                 count: 0,
                 totalTime: 0,
-                averageTime: 0,
-                textInputs: [] // Store text inputs for subquestion 2
+                averageTime: 0
               };
             }
             
@@ -227,11 +249,6 @@ export default function Home() {
             data[codeVersion as 'Clean' | 'Messy'][subQuestionKey][answer].totalTime += timeSpent;
             data[codeVersion as 'Clean' | 'Messy'][subQuestionKey][answer].averageTime = 
               data[codeVersion as 'Clean' | 'Messy'][subQuestionKey][answer].totalTime / data[codeVersion as 'Clean' | 'Messy'][subQuestionKey][answer].count;
-            
-            // Store text input for subquestion 2
-            if (subQuestion === 2 && response.textInput) {
-              data[codeVersion as 'Clean' | 'Messy'][subQuestionKey][answer].textInputs.push(response.textInput);
-            }
           }
         });
       }
@@ -240,214 +257,6 @@ export default function Home() {
     return data;
   };
 
-  const renderBarGraph = (data: any) => {
-    if (!data || (!Object.keys(data.Clean.subQuestion1).length && !Object.keys(data.Clean.subQuestion2).length && 
-        !Object.keys(data.Messy.subQuestion1).length && !Object.keys(data.Messy.subQuestion2).length)) {
-      return null;
-    }
-    
-    const barWidth = 35;
-    const barSpacing = 8;
-    const subQuestionSpacing = 40;
-    const codeVersionSpacing = 60;
-    const graphHeight = isLargeScreen ? 150 : 200;
-    
-    // Calculate all bars and max value for scaling
-    const allBars: any[] = [];
-    let maxTime = 0;
-    let currentX = 50;
-    
-    ['Clean', 'Messy'].forEach((codeVersion) => {
-      const color = codeVersion === 'Clean' ? '#10b981' : '#f59e0b'; // green for clean, orange for messy
-      const codeVersionStartX = currentX;
-      
-      ['subQuestion1', 'subQuestion2'].forEach((subQuestion) => {
-        const answers = data[codeVersion][subQuestion];
-        const subQuestionLabel = subQuestion === 'subQuestion1' ? 'Q1: Can tell what code does?' : 'Q2: See problems?';
-        const subQuestionStartX = currentX;
-        
-        Object.entries(answers)
-          .sort(([a], [b]) => a.localeCompare(b))
-          .forEach(([answer, stats]: [string, any]) => {
-          maxTime = Math.max(maxTime, stats.averageTime);
-          allBars.push({
-            x: currentX,
-            answer,
-            averageTime: stats.averageTime,
-            count: stats.count,
-            color,
-            codeVersion,
-            subQuestion: subQuestionLabel,
-            subQuestionStartX: Object.keys(answers)[0] === answer ? subQuestionStartX : null,
-            codeVersionStartX: subQuestion === 'subQuestion1' && Object.keys(answers)[0] === answer ? codeVersionStartX : null
-          });
-          currentX += barWidth + barSpacing;
-        });
-        
-        if (Object.keys(answers).length > 0) {
-          currentX += subQuestionSpacing;
-        }
-      });
-      
-      currentX += codeVersionSpacing;
-    });
-    
-    
-    // Group bars by code version
-    const cleanBars = allBars.filter(bar => bar.codeVersion === 'Clean');
-    const messyBars = allBars.filter(bar => bar.codeVersion === 'Messy');
-    
-    const renderCodeVersionSection = (bars: any[], codeVersion: string) => {
-      if (bars.length === 0) return null;
-      
-      const color = codeVersion === 'Clean' ? '#10b981' : '#f59e0b';
-      
-      // Group bars by subquestion
-      const q1Bars = bars.filter(bar => bar.subQuestion === 'Q1: Can tell what code does?');
-      const q2Bars = bars.filter(bar => bar.subQuestion === 'Q2: See problems?');
-      
-      const renderSubquestionSection = (subBars: any[], questionLabel: string) => {
-        if (subBars.length === 0) return null;
-        
-        const subSectionWidth = isLargeScreen 
-          ? Math.max(140, subBars.length * (barWidth + barSpacing) + 30)
-          : Math.max(280, subBars.length * (barWidth + barSpacing) + 40);
-        
-        return (
-          <div
-            style={{
-              border: '1px solid black',
-              borderRadius: '4px',
-              padding: isLargeScreen ? '6px' : '8px',
-              margin: isLargeScreen ? '2px' : '4px',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              width: isLargeScreen ? `${subSectionWidth}px` : '100%',
-              maxWidth: `${subSectionWidth}px`,
-              flex: isLargeScreen ? '1' : 'none',
-              minWidth: isLargeScreen ? '150px' : 'auto'
-            }}
-          >
-            <h4 style={{
-              fontSize: '10px',
-              fontWeight: '600',
-              color: '#374151',
-              margin: '0 0 8px 0',
-              textAlign: 'center'
-            }}>
-              {questionLabel}
-            </h4>
-            
-            <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-              <svg width={subSectionWidth} height={graphHeight + 40} style={{ display: 'block' }}>
-              {subBars.map((bar, index) => {
-                const barHeight = maxTime > 0 ? (bar.averageTime / maxTime) * graphHeight : 0;
-                const baselineY = questionLabel.includes('Q1') ? graphHeight + 5 : graphHeight + 15; // Different baseline for Q1 vs Q2
-                const y = baselineY - barHeight; // Start from baseline upward
-                const totalBarsWidth = subBars.length * barWidth + (subBars.length - 1) * barSpacing;
-                const startX = (subSectionWidth - totalBarsWidth) / 2;
-                const adjustedX = startX + (index * (barWidth + barSpacing));
-                
-                return (
-                  <g key={`${bar.codeVersion}-${bar.subQuestion}-${bar.answer}-${index}`}>
-                    <rect
-                      x={adjustedX}
-                      y={y}
-                      width={barWidth}
-                      height={barHeight}
-                      fill={bar.color}
-                      rx={3}
-                    />
-                    <text
-                      x={adjustedX + barWidth / 2}
-                      y={y - 3}
-                      textAnchor="middle"
-                      fontSize="9"
-                      fill="#374151"
-                      fontWeight="600"
-                    >
-                      {(bar.averageTime / 1000).toFixed(1)}s
-                    </text>
-                    <text
-                      x={adjustedX + barWidth / 2}
-                      y={baselineY + 12}
-                      textAnchor="middle"
-                      fontSize="8"
-                      fill="#374151"
-                    >
-                      {bar.answer}
-                    </text>
-                  </g>
-                );
-              })}
-              </svg>
-            </div>
-          </div>
-        );
-      };
-      
-      return (
-        <div 
-          key={codeVersion}
-          style={{ 
-            border: '1px solid black', 
-            borderRadius: '6px', 
-            padding: isLargeScreen ? '8px' : '12px', 
-            margin: isLargeScreen ? '3px' : '5px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            width: isLargeScreen ? 'auto' : '100%',
-            maxWidth: isLargeScreen ? '450px' : '600px',
-            flex: isLargeScreen ? '1' : 'none',
-            minWidth: isLargeScreen ? '300px' : 'auto'
-          }}
-        >
-          <h3 style={{ 
-            fontSize: '14px', 
-            fontWeight: '700', 
-            color: color, 
-            margin: '0 0 10px 0',
-            textAlign: 'center'
-          }}>
-            {codeVersion} Code
-          </h3>
-          
-          <div style={{ 
-            display: 'flex', 
-            flexDirection: isLargeScreen ? 'row' : 'column',
-            gap: isLargeScreen ? '12px' : '8px', 
-            justifyContent: 'center',
-            alignItems: isLargeScreen ? 'stretch' : 'center',
-            width: '100%',
-            flexWrap: isLargeScreen ? 'nowrap' : 'wrap',
-            height: isLargeScreen ? `${graphHeight + 80}px` : 'auto'
-          }}>
-            {renderSubquestionSection(q1Bars, 'Q1: Can tell what code does?')}
-            {renderSubquestionSection(q2Bars, 'Q2: See problems?')}
-          </div>
-        </div>
-      );
-    };
-    
-    return (
-      <div style={{ width: '100%', overflowX: 'auto', padding: '5px' }}>
-        <div style={{ 
-          display: 'flex', 
-          flexDirection: isLargeScreen ? 'row' : 'column',
-          gap: isLargeScreen ? '15px' : '10px', 
-          justifyContent: 'center',
-          alignItems: isLargeScreen ? 'stretch' : 'center',
-          flexWrap: isLargeScreen ? 'nowrap' : 'wrap',
-          width: '100%'
-        }}>
-          {renderCodeVersionSection(cleanBars, 'Clean')}
-          {renderCodeVersionSection(messyBars, 'Messy')}
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div style={{ 
@@ -474,7 +283,13 @@ export default function Home() {
             borderRadius: '8px'
           }}>
             <h2 style={{ 
-              fontSize: '1rem', 
+              fontSize: '1.25rem', 
+              fontWeight: '600', 
+              marginBottom: '16px', 
+              textAlign: 'center'
+            }}>You are about to be shown six short scripts and will be asked to answer a few questions about them. Some of these scripts were written with specific readability guidelines in mind, while others prioritized shortness.</h2>
+            <h2 style={{ 
+              fontSize: '1.25rem', 
               fontWeight: '600', 
               marginBottom: '16px', 
               textAlign: 'center'
@@ -526,120 +341,102 @@ export default function Home() {
               }}>
                 <div style={{ 
                   width: '95%', 
-                  maxWidth: '800px',
-                  backgroundColor: '#f8f9fa', 
-                  border: '1px solid #dee2e6', 
-                  borderRadius: '8px', 
-                  padding: '12px', 
-                  marginBottom: '16px' 
+                  maxWidth: '800px'
                 }}>
-                  <pre style={{ fontSize: '0.875rem', fontFamily: 'monospace', whiteSpace: 'pre-wrap', margin: '0', color: '#374151' }}>
-                    {shuffledData[currentQuestionIndex][`${currentCodeVersion} Version`]}
-                  </pre>
+                  <CodeBlock 
+                    code={shuffledData[currentQuestionIndex][`${currentCodeVersion} Version`]}
+                    backgroundColor='#f8f9fa'
+                    borderColor='#dee2e6'
+                  />
                 </div>
               </div>
               
               <div style={{ textAlign: 'center', marginTop: '20px' }}>
-                <h4 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '16px' }}>
-                  {currentSubQuestion === 1 
-                    ? "Can you tell what this code is meant to do?" 
-                    : "Can you identify any bugs in this code?"}
-                </h4>
-                
-                <div style={{ 
-                  display: 'flex', 
-                  gap: '8px', 
-                  justifyContent: 'center', 
-                  flexWrap: 'wrap',
-                  alignItems: 'center'
-                }}>
-                  {currentSubQuestion === 1 ? (
-                    <>
-                      <button 
-                        style={getButtonStyle(false, currentAnswer === 'YES')}
-                        onClick={() => handleAnswer('YES')}
-                        onMouseEnter={(e) => currentAnswer !== 'YES' && (e.currentTarget.style.backgroundColor = '#6F00FF')}
-                        onMouseLeave={(e) => currentAnswer !== 'YES' && (e.currentTarget.style.backgroundColor = '#020202')}
-                      >
-                        YES
-                      </button>
-                      <button 
-                        style={getButtonStyle(false, currentAnswer === 'NOT SURE')}
-                        onClick={() => handleAnswer("NOT SURE")}
-                        onMouseEnter={(e) => currentAnswer !== 'NOT SURE' && (e.currentTarget.style.backgroundColor = '#6F00FF')}
-                        onMouseLeave={(e) => currentAnswer !== 'NOT SURE' && (e.currentTarget.style.backgroundColor = '#020202')}
-                      >
-                        NOT SURE
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button 
-                        style={getButtonStyle(false, currentAnswer === 'YES')}
-                        onClick={() => handleAnswer('YES')}
-                        onMouseEnter={(e) => currentAnswer !== 'YES' && (e.currentTarget.style.backgroundColor = '#6F00FF')}
-                        onMouseLeave={(e) => currentAnswer !== 'YES' && (e.currentTarget.style.backgroundColor = '#020202')}
-                      >
-                        YES
-                      </button>
-                      <button 
-                        style={getButtonStyle(false, currentAnswer === 'NOT SURE')}
-                        onClick={() => handleAnswer("NOT SURE")}
-                        onMouseEnter={(e) => currentAnswer !== 'NOT SURE' && (e.currentTarget.style.backgroundColor = '#6F00FF')}
-                        onMouseLeave={(e) => currentAnswer !== 'NOT SURE' && (e.currentTarget.style.backgroundColor = '#020202')}
-                      >
-                        NOT SURE
-                      </button>
-                      <button 
-                        style={getButtonStyle(false, currentAnswer === 'NO')}
-                        onClick={() => handleAnswer('NO')}
-                        onMouseEnter={(e) => currentAnswer !== 'NO' && (e.currentTarget.style.backgroundColor = '#6F00FF')}
-                        onMouseLeave={(e) => currentAnswer !== 'NO' && (e.currentTarget.style.backgroundColor = '#020202')}
-                      >
-                        NO
-                      </button>
-                    </>
-                  )}
+                {/* Question 1 */}
+                <div style={{ marginBottom: '24px' }}>
+                  <h4 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '16px' }}>
+                    Can you tell what this code is meant to do?
+                  </h4>
+                  <div style={{ 
+                    display: 'flex', 
+                    gap: '8px', 
+                    justifyContent: 'center', 
+                    flexWrap: 'wrap',
+                    alignItems: 'center'
+                  }}>
+                    <button 
+                      style={getButtonStyle(false, q1Answer === 'YES')}
+                      onClick={() => handleQ1Answer('YES')}
+                      onMouseEnter={(e) => q1Answer !== 'YES' && (e.currentTarget.style.backgroundColor = '#6F00FF')}
+                      onMouseLeave={(e) => q1Answer !== 'YES' && (e.currentTarget.style.backgroundColor = '#020202')}
+                    >
+                      YES
+                    </button>
+                    <button 
+                      style={getButtonStyle(false, q1Answer === 'NOT SURE')}
+                      onClick={() => handleQ1Answer("NOT SURE")}
+                      onMouseEnter={(e) => q1Answer !== 'NOT SURE' && (e.currentTarget.style.backgroundColor = '#6F00FF')}
+                      onMouseLeave={(e) => q1Answer !== 'NOT SURE' && (e.currentTarget.style.backgroundColor = '#020202')}
+                    >
+                      NOT SURE
+                    </button>
+                  </div>
+                </div>
+
+                {/* Question 2 */}
+                <div style={{ marginBottom: '24px' }}>
+                  <h4 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '16px' }}>
+                    Can you identify any bugs in this code?
+                  </h4>
+                  <div style={{ 
+                    display: 'flex', 
+                    gap: '8px', 
+                    justifyContent: 'center', 
+                    flexWrap: 'wrap',
+                    alignItems: 'center'
+                  }}>
+                    <button 
+                      style={getButtonStyle(false, q2Answer === 'YES')}
+                      onClick={() => handleQ2Answer('YES')}
+                      onMouseEnter={(e) => q2Answer !== 'YES' && (e.currentTarget.style.backgroundColor = '#6F00FF')}
+                      onMouseLeave={(e) => q2Answer !== 'YES' && (e.currentTarget.style.backgroundColor = '#020202')}
+                    >
+                      YES
+                    </button>
+                    <button 
+                      style={getButtonStyle(false, q2Answer === 'NOT SURE')}
+                      onClick={() => handleQ2Answer("NOT SURE")}
+                      onMouseEnter={(e) => q2Answer !== 'NOT SURE' && (e.currentTarget.style.backgroundColor = '#6F00FF')}
+                      onMouseLeave={(e) => q2Answer !== 'NOT SURE' && (e.currentTarget.style.backgroundColor = '#020202')}
+                    >
+                      NOT SURE
+                    </button>
+                    <button 
+                      style={getButtonStyle(false, q2Answer === 'NO')}
+                      onClick={() => handleQ2Answer('NO')}
+                      onMouseEnter={(e) => q2Answer !== 'NO' && (e.currentTarget.style.backgroundColor = '#6F00FF')}
+                      onMouseLeave={(e) => q2Answer !== 'NO' && (e.currentTarget.style.backgroundColor = '#020202')}
+                    >
+                      NO
+                    </button>
+                  </div>
                 </div>
                 
-                {currentSubQuestion === 2 && (
+                {/* Next/Continue Button */}
+                {showNextButton && (
                   <div style={{ 
                     marginTop: '20px', 
                     display: 'flex', 
-                    flexDirection: 'column', 
-                    alignItems: 'center', 
-                    gap: '16px',
-                    width: '100%'
+                    justifyContent: 'center'
                   }}>
-                    <textarea
-                      placeholder="What problems do you see with this code?"
-                      value={textInput}
-                      onChange={handleTextInputChange}
-                      style={{
-                        width: '90%',
-                        maxWidth: '600px',
-                        minHeight: '80px',
-                        padding: '12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '8px',
-                        fontSize: '0.9rem',
-                        fontFamily: 'inherit',
-                        resize: 'vertical',
-                        backgroundColor: '#ffffff',
-                        boxSizing: 'border-box'
-                      }}
-                    />
-                    
-                    {showNextButton && (
-                      <button 
-                        style={getButtonStyle(false)}
-                        onClick={handleNextExample}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#6F00FF'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#020202'}
-                      >
-                        NEXT EXAMPLE
-                      </button>
-                    )}
+                    <button 
+                      style={getButtonStyle(false)}
+                      onClick={handleNextExample}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#6F00FF'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#020202'}
+                    >
+                      {currentQuestionIndex >= shuffledData.length - 1 ? 'CONTINUE' : 'NEXT EXAMPLE'}
+                    </button>
                   </div>
                 )}
               </div>
@@ -648,116 +445,303 @@ export default function Home() {
         </div>
       )}
       
-      {!isSubmitted && showContent && shuffledData.length > 0 && currentQuestionIndex >= shuffledData.length && (
-        <div style={{ backgroundColor: '#f3f4f6', border: '1px solid black', borderRadius: '8px', padding: '24px', marginBottom: '32px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
-            <h2 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '16px', textAlign: 'center' }}>You have completed all questions!</h2>
-            <button 
-              style={getButtonStyle(false)}
-              onClick={async () => {
-                console.log('Continue button clicked');
-                console.log('Complete user data:', JSON.stringify(userData, null, 2));
-                
-                try {
-                  const response = await fetch('/api/submissions', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(userData),
-                  });
-                  
-                  if (response.ok) {
-                    const result = await response.json();
-                    console.log('Data saved successfully:', result);
-                    setIsSubmitted(true);
-                    
-                    // Fetch updated submissions
-                    const submissionsResponse = await fetch('/api/submissions');
-                    if (submissionsResponse.ok) {
-                      const submissionsData = await submissionsResponse.json();
-                      const cleanCodeSubmissions = submissionsData.cleanCodeSubmissions || [];
-                      
-                      // Store raw submissions for question-specific calculations
-                      setRawSubmissions(cleanCodeSubmissions);
-                      
-                      // Summarize data by code version, subquestions and answers
-                      const graphData = summarizeDataByCodeVersionAndAnswer(cleanCodeSubmissions);
-                      setGraphData(graphData);
-                    }
-                    
-                    // Scroll down to new section after successful submission
-                    setTimeout(() => {
-                      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-                    }, 100);
-                  } else {
-                    console.error('Failed to save data');
-                  }
-                } catch (error) {
-                  console.error('Error submitting data:', error);
-                }
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#6F00FF'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#020202'}
-            >
-              SUBMIT
-            </button>
-          </div>
-        </div>
-      )}
       
       {isSubmitted && (
         <div style={{ backgroundColor: '#f3f4f6', border: '1px solid black', borderRadius: '8px', padding: '24px', marginBottom: '32px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '24px', textAlign: 'center', color: '#1e293b' }}>Submitted Data</h2>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '24px', textAlign: 'center', color: '#1e293b' }}>How did readability affect your interactions with code?</h2>
           
-          <div style={{ backgroundColor: '#ffffff', border: '1px solid #d1d5db', borderRadius: '8px', padding: '20px' }}>
+          {/* Graph Section */}
+          <div style={{ backgroundColor: '#ffffff', border: '1px solid #d1d5db', borderRadius: '8px', padding: '20px', marginBottom: '24px' }}>
             {graphData ? (
               <div style={{ width: '100%' }}>
-                <div style={{ marginBottom: '16px', textAlign: 'center' }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: '600', color: '#374151', margin: '0' }}>
-                    Average Response Time by Code Version & Answer
-                  </h3>
-                </div>
-                {renderBarGraph(graphData)}
+                {(() => {
+                  if (!graphData) return <p style={{ textAlign: 'center', color: '#666', fontStyle: 'italic' }}>No data available for graph.</p>;
+                  
+                  // Calculate average times
+                  const calculateAverageTime = (codeVersion: string, subQuestion: string) => {
+                    const data = graphData[codeVersion][subQuestion];
+                    let totalTime = 0;
+                    let totalCount = 0;
+                    
+                    Object.values(data).forEach((stats: any) => {
+                      totalTime += stats.totalTime;
+                      totalCount += stats.count;
+                    });
+                    
+                    return totalCount > 0 ? Math.round(totalTime / totalCount / 1000) : 0;
+                  };
+
+                  const cleanQ1Time = calculateAverageTime('Clean', 'subQuestion1');
+                  const messyQ1Time = calculateAverageTime('Messy', 'subQuestion1');
+                  const cleanQ2Time = calculateAverageTime('Clean', 'subQuestion2');
+                  const messyQ2Time = calculateAverageTime('Messy', 'subQuestion2');
+
+                  const maxTime = Math.max(cleanQ1Time, messyQ1Time, cleanQ2Time, messyQ2Time);
+                  const barHeight = 80;
+
+                  return (
+                    <div style={{ 
+                      display: 'flex', 
+                      gap: '20px', 
+                      justifyContent: 'center',
+                      flexWrap: 'wrap',
+                      padding: '20px 0'
+                    }}>
+                      {/* Can you tell what this code does? */}
+                      <div style={{ 
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        padding: '16px',
+                        backgroundColor: '#f9fafb',
+                        textAlign: 'center', 
+                        minWidth: '200px',
+                        flex: '1',
+                        maxWidth: '300px'
+                      }}>
+                        <h4 style={{ 
+                          fontSize: '0.9rem', 
+                          fontWeight: '600', 
+                          marginBottom: '16px',
+                          height: '40px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          Can you tell what this code does?
+                        </h4>
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'end' }}>
+                          {/* Clean bar */}
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{
+                              width: '60px',
+                              height: maxTime > 0 ? `${(cleanQ1Time / maxTime) * barHeight}px` : '20px',
+                              backgroundColor: '#10b981',
+                              borderRadius: '4px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'white',
+                              fontSize: '0.75rem',
+                              fontWeight: '600',
+                              minHeight: '30px'
+                            }}>
+                              {cleanQ1Time}s
+                            </div>
+                            <div style={{ 
+                              marginTop: '4px', 
+                              fontSize: '0.8rem', 
+                              fontWeight: '600',
+                              color: '#10b981'
+                            }}>
+                              Clean
+                            </div>
+                          </div>
+                          {/* Messy bar */}
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{
+                              width: '60px',
+                              height: maxTime > 0 ? `${(messyQ1Time / maxTime) * barHeight}px` : '20px',
+                              backgroundColor: '#f59e0b',
+                              borderRadius: '4px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'white',
+                              fontSize: '0.75rem',
+                              fontWeight: '600',
+                              minHeight: '30px'
+                            }}>
+                              {messyQ1Time}s
+                            </div>
+                            <div style={{ 
+                              marginTop: '4px', 
+                              fontSize: '0.8rem', 
+                              fontWeight: '600',
+                              color: '#f59e0b'
+                            }}>
+                              Messy
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* How long did it take you to gain an understanding? */}
+                      <div style={{ 
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        padding: '16px',
+                        backgroundColor: '#f9fafb',
+                        textAlign: 'center', 
+                        minWidth: '200px',
+                        flex: '1',
+                        maxWidth: '300px'
+                      }}>
+                        <h4 style={{ 
+                          fontSize: '0.9rem', 
+                          fontWeight: '600', 
+                          marginBottom: '16px',
+                          height: '40px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          How long did it take you to gain an understanding?
+                        </h4>
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'end' }}>
+                          {/* Clean bar */}
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{
+                              width: '60px',
+                              height: maxTime > 0 ? `${(cleanQ1Time / maxTime) * barHeight}px` : '20px',
+                              backgroundColor: '#10b981',
+                              borderRadius: '4px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'white',
+                              fontSize: '0.75rem',
+                              fontWeight: '600',
+                              minHeight: '30px'
+                            }}>
+                              {cleanQ1Time} seconds
+                            </div>
+                            <div style={{ 
+                              marginTop: '4px', 
+                              fontSize: '0.8rem', 
+                              fontWeight: '600',
+                              color: '#10b981'
+                            }}>
+                              Clean
+                            </div>
+                          </div>
+                          {/* Messy bar */}
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{
+                              width: '60px',
+                              height: maxTime > 0 ? `${(messyQ1Time / maxTime) * barHeight}px` : '20px',
+                              backgroundColor: '#f59e0b',
+                              borderRadius: '4px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'white',
+                              fontSize: '0.75rem',
+                              fontWeight: '600',
+                              minHeight: '30px'
+                            }}>
+                              {messyQ1Time} seconds
+                            </div>
+                            <div style={{ 
+                              marginTop: '4px', 
+                              fontSize: '0.8rem', 
+                              fontWeight: '600',
+                              color: '#f59e0b'
+                            }}>
+                              Messy
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* How long did it take you to check correctness? */}
+                      <div style={{ 
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        padding: '16px',
+                        backgroundColor: '#f9fafb',
+                        textAlign: 'center', 
+                        minWidth: '200px',
+                        flex: '1',
+                        maxWidth: '300px'
+                      }}>
+                        <h4 style={{ 
+                          fontSize: '0.9rem', 
+                          fontWeight: '600', 
+                          marginBottom: '16px',
+                          height: '40px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          How long did it take you to check correctness?
+                        </h4>
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'end' }}>
+                          {/* Clean bar */}
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{
+                              width: '60px',
+                              height: maxTime > 0 ? `${(cleanQ2Time / maxTime) * barHeight}px` : '20px',
+                              backgroundColor: '#10b981',
+                              borderRadius: '4px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'white',
+                              fontSize: '0.75rem',
+                              fontWeight: '600',
+                              minHeight: '30px'
+                            }}>
+                              {cleanQ2Time} seconds
+                            </div>
+                            <div style={{ 
+                              marginTop: '4px', 
+                              fontSize: '0.8rem', 
+                              fontWeight: '600',
+                              color: '#10b981'
+                            }}>
+                              Clean
+                            </div>
+                          </div>
+                          {/* Messy bar */}
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{
+                              width: '60px',
+                              height: maxTime > 0 ? `${(messyQ2Time / maxTime) * barHeight}px` : '20px',
+                              backgroundColor: '#f59e0b',
+                              borderRadius: '4px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'white',
+                              fontSize: '0.75rem',
+                              fontWeight: '600',
+                              minHeight: '30px'
+                            }}>
+                              {messyQ2Time} seconds
+                            </div>
+                            <div style={{ 
+                              marginTop: '4px', 
+                              fontSize: '0.8rem', 
+                              fontWeight: '600',
+                              color: '#f59e0b'
+                            }}>
+                              Messy
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             ) : (
               <p style={{ textAlign: 'center', color: '#666', fontStyle: 'italic' }}>No data available for graph.</p>
             )}
-            
-            <div style={{ textAlign: 'center', marginTop: '24px' }}>
-              <button
-                onClick={() => {
-                  setShowReviewSection(true);
-                  setTimeout(() => {
-                    const reviewSection = document.querySelector('[data-section="code-snippets-review"]');
-                    if (reviewSection) {
-                      reviewSection.scrollIntoView({ 
-                        behavior: 'smooth',
-                        block: 'start'
-                      });
-                    }
-                  }, 100);
-                }}
-                disabled={showReviewSection}
-                className={!showReviewSection ? 'button' : ''}
-                style={{
-                  ...getButtonStyle(showReviewSection),
-                  padding: '12px 24px',
-                  fontSize: '16px',
-                  fontWeight: '600'
-                }}
-              >
-                CONTINUE
-              </button>
-            </div>
           </div>
-        </div>
-      )}
 
-      {showReviewSection && (
-        <div data-section="code-snippets-review" style={{ backgroundColor: '#f3f4f6', border: '1px solid black', borderRadius: '8px', padding: '24px', marginBottom: '32px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '24px', textAlign: 'center', color: '#1e293b' }}>Code Snippets Review</h2>
-          
+          {/* Code Review Section */}
           <div style={{ backgroundColor: '#ffffff', border: '1px solid #d1d5db', borderRadius: '8px', padding: '20px' }}>
             {/* Tab Navigation */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '24px', justifyContent: 'center' }}>
@@ -786,12 +770,116 @@ export default function Home() {
               ))}
             </div>
 
+            {/* Results box - moved to be after tabs */}
+            {shuffledData.length > 0 && graphData && (() => {
+              const item = shuffledData[activeTabIndex];
+              
+              // Calculate metrics for current question only
+              const calculateMetricsForQuestion = (questionName: string) => {
+                // Filter raw submissions for the specific question
+                let cleanQ1Responses: any[] = [];
+                let messyQ1Responses: any[] = [];
+                let cleanQ2Responses: any[] = [];
+                let messyQ2Responses: any[] = [];
+                
+                rawSubmissions.forEach(submission => {
+                  if (submission.responses && Array.isArray(submission.responses)) {
+                    submission.responses.forEach((response: any) => {
+                      if (response.questionName === questionName) {
+                        if (response.codeVersion === 'Clean' && response.subQuestion === 1) {
+                          cleanQ1Responses.push(response);
+                        } else if (response.codeVersion === 'Messy' && response.subQuestion === 1) {
+                          messyQ1Responses.push(response);
+                        } else if (response.codeVersion === 'Clean' && response.subQuestion === 2) {
+                          cleanQ2Responses.push(response);
+                        } else if (response.codeVersion === 'Messy' && response.subQuestion === 2) {
+                          messyQ2Responses.push(response);
+                        }
+                      }
+                    });
+                  }
+                });
+                
+                // Calculate % Users that Understood (answered YES to subQuestion1)
+                const cleanUnderstandCount = cleanQ1Responses.filter(r => r.answer === 'YES').length;
+                const cleanUnderstandPercent = cleanQ1Responses.length > 0 ? Math.round((cleanUnderstandCount / cleanQ1Responses.length) * 100) : 0;
+                
+                const messyUnderstandCount = messyQ1Responses.filter(r => r.answer === 'YES').length;
+                const messyUnderstandPercent = messyQ1Responses.length > 0 ? Math.round((messyUnderstandCount / messyQ1Responses.length) * 100) : 0;
+                
+                // Average Time to Understand (subQuestion1 average)
+                const cleanTimeQ1 = cleanQ1Responses.length > 0 ? 
+                  cleanQ1Responses.reduce((sum, r) => sum + (r.timeSpent || 0), 0) / cleanQ1Responses.length : 0;
+                const messyTimeQ1 = messyQ1Responses.length > 0 ? 
+                  messyQ1Responses.reduce((sum, r) => sum + (r.timeSpent || 0), 0) / messyQ1Responses.length : 0;
+                
+                // Average Time to Evaluate (subQuestion2 average)
+                const cleanTimeQ2 = cleanQ2Responses.length > 0 ? 
+                  cleanQ2Responses.reduce((sum, r) => sum + (r.timeSpent || 0), 0) / cleanQ2Responses.length : 0;
+                const messyTimeQ2 = messyQ2Responses.length > 0 ? 
+                  messyQ2Responses.reduce((sum, r) => sum + (r.timeSpent || 0), 0) / messyQ2Responses.length : 0;
+                
+                return {
+                  cleanUnderstandPercent,
+                  messyUnderstandPercent,
+                  cleanTimeQ1: Math.round(cleanTimeQ1 / 1000),
+                  messyTimeQ1: Math.round(messyTimeQ1 / 1000),
+                  cleanTimeQ2: Math.round(cleanTimeQ2 / 1000),
+                  messyTimeQ2: Math.round(messyTimeQ2 / 1000)
+                };
+              };
+              
+              const metrics = calculateMetricsForQuestion(item.Name);
+              
+              return (
+                <div style={{ 
+                  width: '80%', 
+                  margin: '0 auto 24px auto', 
+                  backgroundColor: '#f8fafc', 
+                  border: '1px solid black', 
+                  borderRadius: '8px', 
+                  padding: '20px' 
+                }}>                  <h5 style={{ fontSize: '1.1rem', fontWeight: '700', color: '#374151', marginBottom: '16px', textAlign: 'center' }}>{item.Name} - Results</h5>
+                  <table style={{ width: '100%', fontSize: '0.9rem', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#f3f4f6' }}>
+                        <th style={{ padding: '12px', textAlign: 'left', border: '1px solid #e5e7eb', fontWeight: '600', fontSize: '1rem' }}>Metric</th>
+                        <th style={{ padding: '12px', textAlign: 'center', border: '1px solid #e5e7eb', fontWeight: '600', color: '#059669', fontSize: '1rem' }}>Clean Code</th>
+                        <th style={{ padding: '12px', textAlign: 'center', border: '1px solid #e5e7eb', fontWeight: '600', color: '#dc2626', fontSize: '1rem' }}>Messy Code</th>
+                        <th style={{ padding: '12px', textAlign: 'center', border: '1px solid #e5e7eb', fontWeight: '600', fontSize: '1rem' }}>Difference</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td style={{ padding: '12px', border: '1px solid #e5e7eb', fontWeight: '500', fontSize: '0.95rem' }}>% Users that Understood</td>
+                        <td style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'center', fontSize: '0.95rem' }}>{metrics.cleanUnderstandPercent}%</td>
+                        <td style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'center', fontSize: '0.95rem' }}>{metrics.messyUnderstandPercent}%</td>
+                        <td style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'center', fontSize: '0.95rem' }}>{metrics.cleanUnderstandPercent - metrics.messyUnderstandPercent}%</td>
+                      </tr>
+                      <tr style={{ backgroundColor: '#f9fafb' }}>
+                        <td style={{ padding: '12px', border: '1px solid #e5e7eb', fontWeight: '500', fontSize: '0.95rem' }}>Avg Time to Understand</td>
+                        <td style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'center', fontSize: '0.95rem' }}>{metrics.cleanTimeQ1}s</td>
+                        <td style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'center', fontSize: '0.95rem' }}>{metrics.messyTimeQ1}s</td>
+                        <td style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'center', fontSize: '0.95rem' }}>{metrics.cleanTimeQ1 - metrics.messyTimeQ1}s</td>
+                      </tr>
+                      <tr>
+                        <td style={{ padding: '12px', border: '1px solid #e5e7eb', fontWeight: '500', fontSize: '0.95rem' }}>Avg Time to Evaluate</td>
+                        <td style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'center', fontSize: '0.95rem' }}>{metrics.cleanTimeQ2}s</td>
+                        <td style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'center', fontSize: '0.95rem' }}>{metrics.messyTimeQ2}s</td>
+                        <td style={{ padding: '12px', border: '1px solid #e5e7eb', textAlign: 'center', fontSize: '0.95rem' }}>{metrics.cleanTimeQ2 - metrics.messyTimeQ2}s</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
+
             {/* Active Tab Content */}
             {shuffledData.length > 0 && (
               <div>
                 {(() => {
                   const item = shuffledData[activeTabIndex];
-                  const questionResponses = userData.responses.filter(r => r.questionName === item.Name);
+// Removed questionResponses as we no longer need Your Responses box
                   
                   return (
                     <div>
@@ -802,168 +890,56 @@ export default function Home() {
                         {item["What does this do?"]}
                       </p>
                       
-                      <div style={{ display: 'grid', gridTemplateColumns: isLargeScreen ? '1fr 1fr' : '1fr', gap: '16px', marginBottom: '16px' }}>
-                        <div>
-                          <h5 style={{ fontSize: '0.875rem', fontWeight: '600', color: '#059669', marginBottom: '8px' }}>Clean Version:</h5>
-                          <pre style={{ 
-                            backgroundColor: '#f0fdf4', 
-                            border: '1px solid #bbf7d0', 
-                            borderRadius: '4px', 
-                            padding: '12px', 
-                            fontSize: '0.75rem', 
-                            overflow: 'auto',
-                            whiteSpace: 'pre-wrap'
-                          }}>
-                            {item["Clean Version"]}
-                          </pre>
+                      {/* Code Version Tabs */}
+                      <div style={{ 
+                        width: '80%', 
+                        margin: '0 auto',
+                        marginBottom: '16px' 
+                      }}>
+                        <div style={{ display: 'flex', gap: '4px', marginBottom: '12px' }}>
+                          <button
+                            onClick={() => setActiveCodeVersion('Messy')}
+                            style={{
+                              ...getButtonStyle(false, activeCodeVersion === 'Messy'),
+                              padding: '8px 16px',
+                              fontSize: '0.9rem',
+                              backgroundColor: activeCodeVersion === 'Messy' ? '#fef2f2' : '#f3f4f6',
+                              color: activeCodeVersion === 'Messy' ? '#374151' : '#374151',
+                              border: '1px solid #d1d5db',
+                              fontWeight: activeCodeVersion === 'Messy' ? '600' : '400'
+                            }}
+                            onMouseEnter={(e) => activeCodeVersion !== 'Messy' && (e.currentTarget.style.backgroundColor = '#e5e7eb')}
+                            onMouseLeave={(e) => activeCodeVersion !== 'Messy' && (e.currentTarget.style.backgroundColor = '#f3f4f6')}
+                          >
+                            Messy Version
+                          </button>
+                          <button
+                            onClick={() => setActiveCodeVersion('Clean')}
+                            style={{
+                              ...getButtonStyle(false, activeCodeVersion === 'Clean'),
+                              padding: '8px 16px',
+                              fontSize: '0.9rem',
+                              backgroundColor: activeCodeVersion === 'Clean' ? '#f0fdf4' : '#f3f4f6',
+                              color: activeCodeVersion === 'Clean' ? '#374151' : '#374151',
+                              border: '1px solid #d1d5db',
+                              fontWeight: activeCodeVersion === 'Clean' ? '600' : '400'
+                            }}
+                            onMouseEnter={(e) => activeCodeVersion !== 'Clean' && (e.currentTarget.style.backgroundColor = '#e5e7eb')}
+                            onMouseLeave={(e) => activeCodeVersion !== 'Clean' && (e.currentTarget.style.backgroundColor = '#f3f4f6')}
+                          >
+                            Clean Version
+                          </button>
                         </div>
                         
+                        {/* Display selected code version */}
                         <div>
-                          <h5 style={{ fontSize: '0.875rem', fontWeight: '600', color: '#dc2626', marginBottom: '8px' }}>Messy Version:</h5>
-                          <pre style={{ 
-                            backgroundColor: '#fef2f2', 
-                            border: '1px solid #fecaca', 
-                            borderRadius: '4px', 
-                            padding: '12px', 
-                            fontSize: '0.75rem', 
-                            overflow: 'auto',
-                            whiteSpace: 'pre-wrap'
-                          }}>
-                            {item["Messy Version"]}
-                          </pre>
+                          <CodeBlock 
+                            code={item[`${activeCodeVersion} Version`]}
+                            backgroundColor={activeCodeVersion === 'Clean' ? '#f0fdf4' : '#fef2f2'}
+                            borderColor={activeCodeVersion === 'Clean' ? '#bbf7d0' : '#fecaca'}
+                            style={{ fontSize: '0.85rem' }}
+                          />
                         </div>
-                      </div>
-
-                      {/* Results and Your Responses section */}
-                      <div style={{ display: 'flex', flexDirection: isLargeScreen ? 'row' : 'column', gap: '16px', width: '100%' }}>
-                        {/* Results box */}
-                        {graphData && (
-                          <div style={{ flex: '1', backgroundColor: '#f8fafc', border: '1px solid black', borderRadius: '6px', padding: '16px' }}>
-                            <h5 style={{ fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '12px', textAlign: 'center' }}>Results</h5>
-                            {(() => {
-                              // Calculate metrics for current question only
-                              const calculateMetricsForQuestion = (questionName: string) => {
-                                // Filter raw submissions for the specific question
-                                let cleanQ1Responses: any[] = [];
-                                let messyQ1Responses: any[] = [];
-                                let cleanQ2Responses: any[] = [];
-                                let messyQ2Responses: any[] = [];
-                                
-                                rawSubmissions.forEach(submission => {
-                                  if (submission.responses && Array.isArray(submission.responses)) {
-                                    submission.responses.forEach((response: any) => {
-                                      if (response.questionName === questionName) {
-                                        if (response.codeVersion === 'Clean' && response.subQuestion === 1) {
-                                          cleanQ1Responses.push(response);
-                                        } else if (response.codeVersion === 'Messy' && response.subQuestion === 1) {
-                                          messyQ1Responses.push(response);
-                                        } else if (response.codeVersion === 'Clean' && response.subQuestion === 2) {
-                                          cleanQ2Responses.push(response);
-                                        } else if (response.codeVersion === 'Messy' && response.subQuestion === 2) {
-                                          messyQ2Responses.push(response);
-                                        }
-                                      }
-                                    });
-                                  }
-                                });
-                                
-                                // Calculate % Users that Understood (answered YES to subQuestion1)
-                                const cleanUnderstandCount = cleanQ1Responses.filter(r => r.answer === 'YES').length;
-                                const cleanUnderstandPercent = cleanQ1Responses.length > 0 ? Math.round((cleanUnderstandCount / cleanQ1Responses.length) * 100) : 0;
-                                
-                                const messyUnderstandCount = messyQ1Responses.filter(r => r.answer === 'YES').length;
-                                const messyUnderstandPercent = messyQ1Responses.length > 0 ? Math.round((messyUnderstandCount / messyQ1Responses.length) * 100) : 0;
-                                
-                                // Average Time to Understand (subQuestion1 average)
-                                const cleanTimeQ1 = cleanQ1Responses.length > 0 ? 
-                                  cleanQ1Responses.reduce((sum, r) => sum + (r.timeSpent || 0), 0) / cleanQ1Responses.length : 0;
-                                const messyTimeQ1 = messyQ1Responses.length > 0 ? 
-                                  messyQ1Responses.reduce((sum, r) => sum + (r.timeSpent || 0), 0) / messyQ1Responses.length : 0;
-                                
-                                // Average Time to Evaluate (subQuestion2 average)
-                                const cleanTimeQ2 = cleanQ2Responses.length > 0 ? 
-                                  cleanQ2Responses.reduce((sum, r) => sum + (r.timeSpent || 0), 0) / cleanQ2Responses.length : 0;
-                                const messyTimeQ2 = messyQ2Responses.length > 0 ? 
-                                  messyQ2Responses.reduce((sum, r) => sum + (r.timeSpent || 0), 0) / messyQ2Responses.length : 0;
-                                
-                                return {
-                                  cleanUnderstandPercent,
-                                  messyUnderstandPercent,
-                                  cleanTimeQ1: Math.round(cleanTimeQ1 / 1000),
-                                  messyTimeQ1: Math.round(messyTimeQ1 / 1000),
-                                  cleanTimeQ2: Math.round(cleanTimeQ2 / 1000),
-                                  messyTimeQ2: Math.round(messyTimeQ2 / 1000)
-                                };
-                              };
-                              
-                              const metrics = calculateMetricsForQuestion(item.Name);
-                              
-                              return (
-                                <table style={{ width: '100%', fontSize: '0.75rem', borderCollapse: 'collapse' }}>
-                                  <thead>
-                                    <tr style={{ backgroundColor: '#f3f4f6' }}>
-                                      <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #e5e7eb', fontWeight: '600' }}>Metric</th>
-                                      <th style={{ padding: '8px', textAlign: 'center', border: '1px solid #e5e7eb', fontWeight: '600', color: '#059669' }}>Clean Code</th>
-                                      <th style={{ padding: '8px', textAlign: 'center', border: '1px solid #e5e7eb', fontWeight: '600', color: '#dc2626' }}>Messy Code</th>
-                                      <th style={{ padding: '8px', textAlign: 'center', border: '1px solid #e5e7eb', fontWeight: '600' }}>Difference</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    <tr>
-                                      <td style={{ padding: '8px', border: '1px solid #e5e7eb', fontWeight: '500' }}>% Users that Understood</td>
-                                      <td style={{ padding: '8px', border: '1px solid #e5e7eb', textAlign: 'center' }}>{metrics.cleanUnderstandPercent}%</td>
-                                      <td style={{ padding: '8px', border: '1px solid #e5e7eb', textAlign: 'center' }}>{metrics.messyUnderstandPercent}%</td>
-                                      <td style={{ padding: '8px', border: '1px solid #e5e7eb', textAlign: 'center' }}>{metrics.cleanUnderstandPercent - metrics.messyUnderstandPercent}%</td>
-                                    </tr>
-                                    <tr style={{ backgroundColor: '#f9fafb' }}>
-                                      <td style={{ padding: '8px', border: '1px solid #e5e7eb', fontWeight: '500' }}>Avg Time to Understand</td>
-                                      <td style={{ padding: '8px', border: '1px solid #e5e7eb', textAlign: 'center' }}>{metrics.cleanTimeQ1}s</td>
-                                      <td style={{ padding: '8px', border: '1px solid #e5e7eb', textAlign: 'center' }}>{metrics.messyTimeQ1}s</td>
-                                      <td style={{ padding: '8px', border: '1px solid #e5e7eb', textAlign: 'center' }}>{metrics.cleanTimeQ1 - metrics.messyTimeQ1}s</td>
-                                    </tr>
-                                    <tr>
-                                      <td style={{ padding: '8px', border: '1px solid #e5e7eb', fontWeight: '500' }}>Avg Time to Evaluate</td>
-                                      <td style={{ padding: '8px', border: '1px solid #e5e7eb', textAlign: 'center' }}>{metrics.cleanTimeQ2}s</td>
-                                      <td style={{ padding: '8px', border: '1px solid #e5e7eb', textAlign: 'center' }}>{metrics.messyTimeQ2}s</td>
-                                      <td style={{ padding: '8px', border: '1px solid #e5e7eb', textAlign: 'center' }}>{metrics.cleanTimeQ2 - metrics.messyTimeQ2}s</td>
-                                    </tr>
-                                  </tbody>
-                                </table>
-                              );
-                            })()}
-                          </div>
-                        )}
-                        
-                        {/* Your Responses box */}
-                        {questionResponses.length > 0 && (
-                          <div style={{ flex: '1', backgroundColor: '#f8fafc', border: '1px solid black', borderRadius: '6px', padding: '16px' }}>
-                            <h5 style={{ fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '12px', textAlign: 'center' }}>Your Responses</h5>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                              {questionResponses.map((response, respIndex) => (
-                                <div key={respIndex} style={{ 
-                                  backgroundColor: '#ffffff', 
-                                  padding: '10px', 
-                                  borderRadius: '4px',
-                                  border: '1px solid #e5e7eb'
-                                }}>
-                                  <div style={{ marginBottom: '4px' }}>
-                                    <span style={{ fontSize: '0.75rem', fontWeight: '600', color: response.codeVersion === 'Clean' ? '#059669' : '#dc2626' }}>
-                                      {response.codeVersion} Version - {Math.round(response.timeSpent / 1000)}s
-                                    </span>
-                                  </div>
-                                  <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: '0 0 4px 0' }}>
-                                    {response.subQuestionText}: <strong style={{ color: '#374151' }}>{response.answer}</strong>
-                                  </p>
-                                  {response.textInput && (
-                                    <p style={{ fontSize: '0.75rem', color: '#475569', margin: 0, fontStyle: 'italic', backgroundColor: '#f9fafb', padding: '4px 8px', borderRadius: '3px' }}>
-                                      &quot;{response.textInput}&quot;
-                                    </p>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </div>
                   );

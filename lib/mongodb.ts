@@ -28,7 +28,7 @@ if (!cached) {
 
 async function dbConnect() {
   if (!MONGODB_URI) {
-    throw new Error('Please define the MONGODB_URI environment variable');
+    throw new Error('MONGODB_URI environment variable is not defined');
   }
 
   if (cached.conn) {
